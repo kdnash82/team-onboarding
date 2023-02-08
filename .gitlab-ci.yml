@@ -1,0 +1,68 @@
+stages:
+  - create-namespace
+  - create-sa
+  - create-role-and-binding
+  - generate-kubeconfig
+  - create-git-repo
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: never  
+    - when: always 
+
+create-namespace:
+  stage: create-namespace
+  image:
+    name: velero-utils:1.0.1
+    entrypoint: ["/bin/bash", "-c"]
+  script:
+    - mkdir -p ~/.kube; echo -n $KUBE_CONFIG | base64 -d > ~/.kube/config; export KUBECONFIG=$HOME/.kube/config
+    - kubectl config use-context tkg-alpha-cluster-status-check-sa@tkg-alpha
+    - bash create-ns.sh || (echo "Unable to run script" && exit 1)
+
+create-sa:
+  stage: create-sa
+  image:
+    name: velero-utils:1.0.1
+    entrypoint: ["/bin/bash", "-c"]
+  script:
+    - mkdir -p ~/.kube; echo -n $KUBE_CONFIG | base64 -d > ~/.kube/config; export KUBECONFIG=$HOME/.kube/config
+    - kubectl config use-context tkg-alpha-cluster-status-check-sa@tkg-alpha
+    - bash create-sa.sh || (echo "Unable to run script" && exit 1)
+
+create-role-and-binding:
+  stage: create-role-and-binding
+  image:
+    name: velero-utils:1.0.1
+    entrypoint: ["/bin/bash", "-c"]
+  script:
+    - mkdir -p ~/.kube; echo -n $KUBE_CONFIG | base64 -d > ~/.kube/config; export KUBECONFIG=$HOME/.kube/config
+    - kubectl config use-context tkg-alpha-cluster-status-check-sa@tkg-alpha
+    - bash create-role.sh || (echo "Unable to run script" && exit 1)
+
+generate-kubeconfig:
+  stage: generate-kubeconfig
+  image:
+    name: velero-utils:1.0.1
+    entrypoint: ["/bin/bash", "-c"]
+  script:
+    - mkdir -p ~/.kube; echo -n $KUBE_CONFIG | base64 -d > ~/.kube/config; export KUBECONFIG=$HOME/.kube/config
+    - kubectl config use-context tkg-alpha-cluster-status-check-sa@tkg-alpha
+    - bash generate-kubeconfig.sh || (echo "Unable to run script" && exit 1)
+  artifacts:
+    reports:
+      dotenv: kubeconfig.env
+
+create-project:
+  stage: create-git-repo
+  image:
+    name: velero-utils:1.0.1
+    entrypoint: ["/bin/bash", "-c"]
+  script:
+    # run the script
+    - ./create-git-repo.sh
+  dependencies:
+    - generate-kubeconfig
+  only: 
+    - web
